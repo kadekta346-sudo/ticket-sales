@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - Daftar Pesanan Tiket</title>
+  <style>
+    body { font-family:Arial,sans-serif; margin:0; padding:0; background:#f4f4f4; color:#333; }
+    header { background:#eca706; color:#fff; text-align:center; padding:20px; }
+    .container { max-width:1100px; margin:20px auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+    table { width:100%; border-collapse:collapse; margin-top:20px; }
+    th, td { border:1px solid #ddd; padding:12px; text-align:left; }
+    th { background:#ff6b35; color:#fff; }
+    tr:nth-child(even){ background:#f2f2f2 }
+    #stok-info { font-size:18px; font-weight:bold; color:#ff6b35; margin-bottom:20px; text-align:center }
+    button { background:#ff6b35; color:#fff; padding:8px 12px; border:none; border-radius:5px; cursor:pointer; margin:2px; }
+    .cancel-btn { background:#dc3545 }
+    .reset-btn { background:#b30000 }
+    footer { text-align:center; padding:10px; background:#333; color:#fff; margin-top:20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin Panel - Daftar Pesanan Tiket</h1>
+    <p>Kelola pesanan untuk GRF UKM Musik Undiksha 2025</p>
+  </header>
+
+  <div class="container">
+    <div id="passwordPrompt">
+      <input type="password" id="adminPass" placeholder="Masukkan Password Admin (default: admin123)">
+      <button id="loginBtn">Login</button>
+    </div>
+
+    <div id="adminContent" style="display:none;">
+      <div id="stok-info">Stok Tiket Tersisa: <span id="stokValue">Loading...</span></div>
+      <button id="resetBtn" class="reset-btn">Reset Data</button>
+      <button id="logoutBtn" style="background:#555;">Logout</button>
+      <button id="backBtn">Kembali ke Halaman Utama</button>
+      <p style="text-align:center; font-size:14px; color:#666;">Total Pesanan: <span id="totalPesanan">0</span></p>
+
+      <table id="pesananTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Jumlah Tiket</th>
+            <th>Total (Rp)</th>
+            <th>Tanggal Pesan</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Ticketing Konser. Admin Panel.</p>
+  </footer>
+
+<script>
+  const ADMIN_PASSWORD = 'admin123';
+  let adminLoggedIn = false;
+
+  // Tombol
+  document.getElementById('loginBtn').addEventListener('click', checkPassword);
+  document.getElementById('logoutBtn').addEventListener('click', logoutAdmin);
+  document.getElementById('backBtn').addEventListener('click', () => window.location.href = 'index.html');
+  document.getElementById('resetBtn').addEventListener('click', resetData);
+  document.getElementById('adminPass').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
+
+  // Cek login tersimpan
+  window.addEventListener('load', () => {
+    if (localStorage.getItem('adminLoggedIn') === 'true') {
+      adminLoggedIn = true;
+      document.getElementById('passwordPrompt').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      loadData();
+    }
+  });
+
+  function checkPassword() {
+    const pass = document.getElementById('adminPass').value;
+    if (pass === ADMIN_PASSWORD) {
+      adminLoggedIn = true;
+      localStorage.setItem('adminLoggedIn', 'true');
+      document.getElementById('passwordPrompt').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      loadData();
+    } else {
+      alert('Password salah!');
+      document.getElementById('adminPass').value = '';
+    }
+  }
+
+  function logoutAdmin() {
+    localStorage.removeItem('adminLoggedIn');
+    adminLoggedIn = false;
+    document.getElementById('adminContent').style.display = 'none';
+    document.getElementById('passwordPrompt').style.display = 'block';
+    document.getElementById('adminPass').value = '';
+  }
+
+  function showError(msg) { alert(msg); }
+
+  async function loadData() {
+    if (!adminLoggedIn) return;
+
+    const tbody = document.getElementById('tableBody');
+    const stokValue = document.getElementById('stokValue');
+    const totalPesanan = document.getElementById('totalPesanan');
+    const table = document.getElementById('pesananTable');
+
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">⏳ Memuat data...</td></tr>';
+    table.style.display = 'table';
+    stokValue.innerText = 'Memuat...';
+    totalPesanan.innerText = '...';
+
+    try {
+      const stokRes = await fetch('http://localhost:3000/api/stok', { cache: 'no-store' });
+      const stokData = await stokRes.json();
+      stokValue.innerText = stokData.tersedia.toLocaleString('id-ID');
+
+      const pesananRes = await fetch('http://localhost:3000/api/pesanan', { cache: 'no-store' });
+      const rows = await pesananRes.json();
+
+      tbody.innerHTML = '';
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;">Belum ada pesanan.</td></tr>';
+      } else {
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          const isCancelled = row.tiket_code && row.tiket_code.startsWith('CANCELLED');
+          tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.nama}</td>
+            <td>${row.email}</td>
+            <td>${row.jumlah}</td>
+            <td>${row.total === 0 ? '<span style="color:red;">Dibatalkan</span>' : 'Rp ' + parseInt(row.total).toLocaleString('id-ID')}</td>
+            <td>${new Date(row.tanggal).toLocaleString('id-ID')}</td>
+            <td>
+              ${isCancelled
+                ? '<span style="color:red;font-weight:bold;">Batal</span>'
+                : `<button class="cancel-btn" onclick="cancelPesanan(${row.id}, ${row.jumlah})">Batalkan</button>`}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      totalPesanan.innerText = rows.length;
+    } catch (err) {
+      console.error(err);
+      showError('Gagal memuat data: ' + err.message);
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:red;">Gagal memuat data.</td></tr>';
+    }
+  }
+
+  // 🔥 Fungsi reset semua data
+  function resetData() {
+    if (!confirm("⚠️ Semua data pesanan akan dihapus dan stok tiket direset ke 1000. Lanjutkan?")) return;
+    fetch("http://localhost:3000/api/reset", { method: "POST" })
+      .then(res => res.json())
+      .then(d => {
+        if (d.success) {
+          alert("✅ Data berhasil direset!");
+          loadData();
+        } else {
+          alert("❌ Gagal mereset data: " + d.error);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("⚠️ Gagal koneksi ke server: " + err.message);
+      });
+  }
+
+  function cancelPesanan(id, jumlah) {
+    if (!confirm(`Yakin batalkan pesanan ID ${id}?`)) return;
+    fetch(`http://localhost:3000/api/pesanan/${id}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          alert(d.message);
+          loadData();
+        } else {
+          showError(d.error || 'Gagal batalkan');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        showError('Gagal koneksi: ' + err.message);
+      });
+  }
+</script>
+</body>
+</html>

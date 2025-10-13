@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ticketing Konser - GRF UKM Musik Undiksha 2025</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; color:#333; }
+    header { background:#eca706; color:#fff; text-align:center; padding:20px; }
+    .container { max-width:800px; margin:20px auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+    .event-info { text-align:center; margin-bottom:30px; }
+    .event-info h2 { color:#ff6b35; }
+    .ticket-form { display:flex; flex-direction:column; }
+    .form-group { margin-bottom:15px; }
+    label { display:block; margin-bottom:5px; font-weight:bold; }
+    input, select { width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box; }
+    button { background:#ff6b35; color:#fff; padding:12px; border:none; border-radius:5px; cursor:pointer; font-size:16px; }
+    button:hover { background:#e55a2b; }
+    #total-harga { font-size:18px; font-weight:bold; color:#ff6b35; margin-top:10px; }
+    .confirmation { display:none; text-align:center; background:#d4edda; border:1px solid #c3e6cb; padding:20px; border-radius:5px; margin-top:20px; }
+    footer { text-align:center; padding:10px; background:#333; color:#fff; margin-top:20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ticketing Konser GRF UKM Musik Undiksha 2025</h1>
+    <p>Hadiri penampilan spektakuler dari artis favorit Anda!</p>
+  </header>
+
+  <div class="container">
+    <div class="event-info">
+      <h2>Detail Konser</h2>
+      <p><strong>Tanggal:</strong> 20 Desember 2025</p>
+      <p><strong>Lokasi:</strong> Lap. Basket Kampus Tengah Undiksha</p>
+      <p><strong>HTM:</strong> Rp 50.000</p>
+      <p><strong>Deskripsi:</strong> Konser musik HardCore!</p>
+    </div>
+
+    <form class="ticket-form" id="ticketForm">
+      <div class="form-group">
+        <label for="nama">Nama Lengkap:</label>
+        <input type="text" id="nama" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="jumlah">Jumlah Tiket:</label>
+        <select id="jumlah" onchange="hitungTotal()">
+          <option value="1">1 Tiket</option>
+          <option value="2">2 Tiket</option>
+          <option value="3">3 Tiket</option>
+          <option value="4">4 Tiket</option>
+          <option value="5">5 Tiket</option>
+        </select>
+      </div>
+
+      <div id="total-harga">Total Harga: Rp 50.000</div>
+      <button type="button" id="buyBtn">Beli Tiket Sekarang</button>
+    </form>
+
+    <div id="confirmation" class="confirmation">
+      <h3>Terima Kasih!</h3>
+      <p>Pembayaran Anda berhasil. Tiket akan dikirim ke email <span id="emailConfirm"></span> dalam 24 jam.</p>
+      <p><strong>Detail Pesanan:</strong></p>
+      <p id="detailPesanan"></p>
+      <button id="againBtn">Pesan Lagi</button>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Ticketing Konser. Semua hak dilindungi.</p>
+  </footer>
+
+  <script>
+    const HARGA_TIKET = 50000;
+
+    function hitungTotal() {
+      const jumlah = parseInt(document.getElementById('jumlah').value);
+      const total = jumlah * HARGA_TIKET;
+      document.getElementById('total-harga').innerText = `Total Harga: Rp ${total.toLocaleString('id-ID')}`;
+    }
+
+    async function prosesPembayaran() {
+      const nama = document.getElementById('nama').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const jumlah = parseInt(document.getElementById('jumlah').value);
+
+      if (!nama || !email) {
+        alert('Mohon isi nama dan email dengan lengkap!');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:3000/api/pesan-tiket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nama, email, jumlah })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          alert(data.error || 'Gagal memesan tiket');
+          return;
+        }
+
+        const total = jumlah * HARGA_TIKET;
+        const idList = data.tiketList.map(t => t.id).join(',');
+
+        // Tampilkan detail
+        document.getElementById('emailConfirm').innerText = email;
+        document.getElementById('detailPesanan').innerHTML =
+          `Nama: ${nama}<br>Email: ${email}<br>Jumlah Tiket: ${jumlah}<br>Total: Rp ${total.toLocaleString('id-ID')}<br>
+          <strong>Kode Tiket Pertama: ${data.tiketList[0].tiket_code}</strong><br>
+          <a href="tiket.html?orderId=${idList}" target="_blank" style="color:#ff6b35;font-weight:bold;">
+            Lihat Semua Tiket Anda (Klik di sini)
+          </a>`;
+
+        document.getElementById('ticketForm').style.display = 'none';
+        document.getElementById('confirmation').style.display = 'block';
+
+        alert(data.message || 'Pesanan berhasil!');
+
+        // Otomatis buka halaman tiket
+        window.open(`tiket.html?orderId=${idList}`, '_blank');
+
+      } catch (err) {
+        console.error(err);
+        alert('Error koneksi ke server: ' + err.message + '. Pastikan backend berjalan di http://localhost:3000');
+      }
+    }
+
+    document.getElementById('buyBtn').addEventListener('click', prosesPembayaran);
+    document.getElementById('againBtn').addEventListener('click', () => {
+      document.getElementById('ticketForm').style.display = 'flex';
+      document.getElementById('confirmation').style.display = 'none';
+      document.getElementById('ticketForm').reset();
+      hitungTotal();
+    });
+
+    hitungTotal();
+  </script>
+</body>
+</html>

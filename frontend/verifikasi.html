@@ -89,7 +89,7 @@
         return;
       }
 
-      const apiBase = "10.10.10.127:3000"; // ganti dengan IP server kamu
+      const apiBase = "10.10.10.127:3000"; 
       fetch(`http://${apiBase}/api/tiket/${tiket.id}`)
         .then(res => res.json())
         .then(r => {

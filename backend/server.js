@@ -10,8 +10,9 @@ const PORT = 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
+// Inisialisasi Database SQLite
 const dbPath = path.join(__dirname, 'ticketing.db');
-const db = new sqlite3.Database('./data/ticketing.db');
+const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
   db.run(`
@@ -40,6 +41,9 @@ function generateTicketCode(id) {
   return `TKT-GRF-2025-${String(id).padStart(4, '0')}`;
 }
 
+// ========================
+// API: Pemesanan Tiket (multi-tiket, id unik per tiket)
+// ========================
 app.post('/api/pesan-tiket', async (req, res) => {
   const { nama, email, jumlah } = req.body;
   const HARGA_TIKET = 50000;
@@ -62,6 +66,7 @@ app.post('/api/pesan-tiket', async (req, res) => {
     if (tersedia < qty)
       return res.status(400).json({ success: false, error: `Stok tiket tidak cukup. Sisa: ${tersedia}` });
 
+    // Kurangi stok
     await new Promise((resolve, reject) => {
       db.run('UPDATE stok_tiket SET tersedia = tersedia - ? WHERE id = 1', [qty], err =>
         err ? reject(err) : resolve()
@@ -70,6 +75,7 @@ app.post('/api/pesan-tiket', async (req, res) => {
 
     const tiketList = [];
 
+    // Simpan setiap tiket secara terpisah
     for (let i = 0; i < qty; i++) {
       const ticketId = await new Promise((resolve, reject) => {
         db.run(
@@ -113,6 +119,9 @@ app.post('/api/pesan-tiket', async (req, res) => {
   }
 });
 
+// ========================
+// API: Ambil Data Pesanan & Stok
+// ========================
 app.get('/api/pesanan', (req, res) => {
   db.all('SELECT * FROM pesanan ORDER BY tanggal DESC', (err, rows) => {
     if (err)
@@ -129,6 +138,9 @@ app.get('/api/stok', (req, res) => {
   });
 });
 
+// ========================
+// API: Detail Tiket
+// ========================
 app.get('/api/tiket/:id', (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id))
@@ -156,6 +168,9 @@ app.get('/api/tiket/:id', (req, res) => {
   });
 });
 
+// ========================
+// ✅ Reset Semua Data (ID & Stok)
+// ========================
 app.post('/api/reset', (req, res) => {
   db.serialize(() => {
     db.run('DELETE FROM pesanan');
@@ -171,4 +186,3 @@ app.post('/api/reset', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server berjalan di http://10.10.10.127:${PORT}`);
 });
-

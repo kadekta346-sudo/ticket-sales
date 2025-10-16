@@ -5,25 +5,172 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ticketing Konser - GRF UKM Musik Undiksha 2025</title>
   <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; color:#333; }
-    header { background:#eca706; color:#fff; text-align:center; padding:20px; }
-    .container { max-width:800px; margin:20px auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-    .event-info { text-align:center; margin-bottom:30px; }
-    .event-info h2 { color:#ff6b35; }
-    .ticket-form { display:flex; flex-direction:column; }
-    .form-group { margin-bottom:15px; }
-    label { display:block; margin-bottom:5px; font-weight:bold; }
-    input, select { width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box; }
-    button { background:#ff6b35; color:#fff; padding:12px; border:none; border-radius:5px; cursor:pointer; font-size:16px; }
-    button:hover { background:#e55a2b; }
-    #total-harga { font-size:18px; font-weight:bold; color:#ff6b35; margin-top:10px; }
-    .confirmation { display:none; text-align:center; background:#d4edda; border:1px solid #c3e6cb; padding:20px; border-radius:5px; margin-top:20px; }
-    footer { text-align:center; padding:10px; background:#333; color:#fff; margin-top:20px; }
+    /* === Gaya Utama === */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+      color: #333;
+    }
+
+    header {
+      background: #000;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .event-info {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .event-info h2 {
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    .ticket-form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      background: #1473d9;
+      color: #fff;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #e55a2b;
+    }
+
+    #total-harga {
+      font-size: 18px;
+      font-weight: bold;
+      color: #ff0000;
+      margin-top: 10px;
+    }
+
+    .confirmation {
+      display: none;
+      text-align: center;
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      padding: 20px;
+      border-radius: 5px;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+
+    footer {
+      text-align: center;
+      padding: 10px;
+      background: #333;
+      color: #fff;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    /* === RESPONSIVE DESIGN === */
+    @media (max-width: 768px) {
+      header {
+        padding: 15px;
+      }
+
+      header h1 {
+        font-size: 20px;
+      }
+
+      .container {
+        margin: 10px;
+        padding: 15px;
+      }
+
+      .event-info h2 {
+        font-size: 18px;
+      }
+
+      .ticket-form input,
+      .ticket-form select,
+      .ticket-form button {
+        font-size: 14px;
+        padding: 10px;
+      }
+
+      #total-harga {
+        font-size: 16px;
+      }
+
+      .confirmation {
+        font-size: 14px;
+        padding: 15px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      header h1 {
+        font-size: 18px;
+      }
+
+      header p {
+        font-size: 14px;
+      }
+
+      .event-info p {
+        font-size: 14px;
+      }
+
+      button {
+        font-size: 14px;
+        width: 100%;
+      }
+
+      footer {
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
+
 <body>
   <header>
-    <h1>Ticketing Konser GRF UKM Musik Undiksha 2025</h1>
+    <h1>Ticket Konser GRF UKM Musik Undiksha 2025</h1>
     <p>Hadiri penampilan spektakuler dari artis favorit Anda!</p>
   </header>
 
@@ -41,10 +188,12 @@
         <label for="nama">Nama Lengkap:</label>
         <input type="text" id="nama" required>
       </div>
+
       <div class="form-group">
         <label for="email">Email:</label>
         <input type="email" id="email" required>
       </div>
+
       <div class="form-group">
         <label for="jumlah">Jumlah Tiket:</label>
         <select id="jumlah" onchange="hitungTotal()">
@@ -62,7 +211,8 @@
 
     <div id="confirmation" class="confirmation">
       <h3>Terima Kasih!</h3>
-      <p>Pembayaran Anda berhasil. Tiket akan dikirim ke email <span id="emailConfirm"></span> dalam 24 jam.</p>
+      <p>Pembayaran Anda berhasil. Tiket akan dikirim ke email
+        <span id="emailConfirm"></span> dalam 24 jam.</p>
       <p><strong>Detail Pesanan:</strong></p>
       <p id="detailPesanan"></p>
       <button id="againBtn">Pesan Lagi</button>
@@ -79,7 +229,8 @@
     function hitungTotal() {
       const jumlah = parseInt(document.getElementById('jumlah').value);
       const total = jumlah * HARGA_TIKET;
-      document.getElementById('total-harga').innerText = `Total Harga: Rp ${total.toLocaleString('id-ID')}`;
+      document.getElementById('total-harga').innerText =
+        `Total Harga: Rp ${total.toLocaleString('id-ID')}`;
     }
 
     async function prosesPembayaran() {
@@ -109,26 +260,29 @@
         const total = jumlah * HARGA_TIKET;
         const idList = data.tiketList.map(t => t.id).join(',');
 
-        // Tampilkan detail
         document.getElementById('emailConfirm').innerText = email;
-        document.getElementById('detailPesanan').innerHTML =
-          `Nama: ${nama}<br>Email: ${email}<br>Jumlah Tiket: ${jumlah}<br>Total: Rp ${total.toLocaleString('id-ID')}<br>
+        document.getElementById('detailPesanan').innerHTML = `
+          Nama: ${nama}<br>
+          Email: ${email}<br>
+          Jumlah Tiket: ${jumlah}<br>
+          Total: Rp ${total.toLocaleString('id-ID')}<br>
           <strong>Kode Tiket Pertama: ${data.tiketList[0].tiket_code}</strong><br>
-          <a href="tiket.html?orderId=${idList}" target="_blank" style="color:#ff6b35;font-weight:bold;">
-            Lihat Semua Tiket Anda (Klik di sini)
-          </a>`;
+          <a href="tiket.html?orderId=${idList}" target="_blank"
+             style="color:#ff6b35;font-weight:bold;">
+             Lihat Semua Tiket Anda (Klik di sini)
+          </a>
+        `;
 
         document.getElementById('ticketForm').style.display = 'none';
         document.getElementById('confirmation').style.display = 'block';
 
         alert(data.message || 'Pesanan berhasil!');
-
-        // Otomatis buka halaman tiket
         window.open(`tiket.html?orderId=${idList}`, '_blank');
 
       } catch (err) {
         console.error(err);
-        alert('Error koneksi ke server: ' + err.message + '. Pastikan backend berjalan di http://localhost:3000');
+        alert('Error koneksi ke server: ' + err.message +
+              '. Pastikan backend berjalan di http://localhost:3000');
       }
     }
 

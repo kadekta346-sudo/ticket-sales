@@ -6,62 +6,135 @@
   <title>Verifikasi Tiket QR</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body { font-family: 'Poppins', sans-serif; text-align: center; background: #f7f7f7; }
-    h1 { color: #ff6b35; margin-top: 20px; }
-    #reader { width: 320px; margin: 20px auto; }
-    .result { background: #fff; padding: 15px; border-radius: 8px; width: 320px; margin: 10px auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    /* ======== GLOBAL ======== */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+      background: linear-gradient(135deg, #f7f7f7 0%, #eef1f6 100%);
+      margin: 0;
+      padding: 0;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      color: #ff6b35;
+      margin-top: 25px;
+      font-size: 1.8rem;
+    }
+
+    /* ======== QR READER ======== */
+    #reader {
+      width: 90%;
+      max-width: 380px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      margin: 20px auto;
+      overflow: hidden;
+    }
+
+    /* ======== HASIL ======== */
+    .result {
+      background: #fff;
+      padding: 16px 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 380px;
+      margin: 10px auto 30px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      line-height: 1.6;
+      font-size: 15px;
+      transition: 0.3s;
+    }
+
+    /* Warna status */
+    .result.valid { border-left: 6px solid #28a745; }
+    .result.invalid { border-left: 6px solid #dc3545; }
+    .result.warning { border-left: 6px solid #ffc107; }
+
+    /* ======== RESPONSIVE ======== */
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.4rem;
+        margin-top: 15px;
+      }
+      .result {
+        font-size: 14px;
+        padding: 14px;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>Scan Tiket QR 🎫</h1>
   <div id="reader"></div>
-  <div class="result" id="result">Arahkan kamera ke QR code...</div>
+  <div class="result warning" id="result">📷 Arahkan kamera ke QR code Anda...</div>
 
   <script>
     function verifyTicket(data) {
+      const resultBox = document.getElementById('result');
       let tiket;
       try {
         tiket = JSON.parse(data);
       } catch {
-        document.getElementById('result').innerHTML = "❌ QR tidak valid";
+        resultBox.className = "result invalid";
+        resultBox.innerHTML = "❌ QR tidak valid.";
         return;
       }
 
-    const apiBase = "10.10.10.127:3000"; // IP dari laptop kamu
-        fetch(`http://${apiBase}/api/tiket/${tiket.id}`)
+      const apiBase = "10.10.10.127:3000"; // ganti dengan IP server kamu
+      fetch(`http://${apiBase}/api/tiket/${tiket.id}`)
         .then(res => res.json())
         .then(r => {
           if (!r.success) {
-            document.getElementById('result').innerHTML = "❌ Tiket tidak valid / dibatalkan.";
+            resultBox.className = "result invalid";
+            resultBox.innerHTML = "❌ Tiket tidak valid / dibatalkan.";
             return;
           }
+
           if (r.data.tiket_code.startsWith('CANCELLED')) {
-            document.getElementById('result').innerHTML = "❌ Tiket ini sudah DIBATALKAN!";
+            resultBox.className = "result invalid";
+            resultBox.innerHTML = "❌ Tiket ini sudah DIBATALKAN!";
           } else {
-            document.getElementById('result').innerHTML = `
+            resultBox.className = "result valid";
+            resultBox.innerHTML = `
               ✅ <b>Tiket Valid!</b><br>
-              Nama: ${r.data.nama}<br>
-              Kode: ${r.data.tiket_code}<br>
-              Email: ${r.data.email}
+              <b>Nama:</b> ${r.data.nama}<br>
+              <b>Kode:</b> ${r.data.tiket_code}<br>
+              <b>Email:</b> ${r.data.email}
             `;
           }
         })
         .catch(() => {
-          document.getElementById('result').innerHTML = "⚠️ Gagal menghubungi server.";
+          resultBox.className = "result warning";
+          resultBox.innerHTML = "⚠️ Gagal menghubungi server.";
         });
     }
 
     const html5QrCode = new Html5Qrcode("reader");
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length) {
-        html5QrCode.start(
-          devices[0].id,
-          { fps: 10, qrbox: 250 },
-          verifyTicket,
-          err => { /* abaikan error kecil */ }
-        );
-      }
-    });
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        if (devices && devices.length) {
+          html5QrCode.start(
+            devices[0].id,
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            verifyTicket,
+            err => {}
+          );
+        } else {
+          document.getElementById('result').innerHTML = "❌ Kamera tidak ditemukan.";
+        }
+      })
+      .catch(() => {
+        document.getElementById('result').innerHTML = "⚠️ Tidak dapat mengakses kamera.";
+      });
   </script>
 </body>
 </html>

@@ -1,58 +1,48 @@
 const express = require('express');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
+const PORT = 3000;
+
 app.use(bodyParser.json());
 app.use(cors());
 
-// ========================
-// Koneksi ke PostgreSQL (pakai environment variable)
-// ========================
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
+// Inisialisasi Database SQLite
+const dbPath = path.join(__dirname, 'ticketing.db');
+const db = new sqlite3.Database(dbPath);
 
-// ========================
-// Buat tabel kalau belum ada
-// ========================
-async function initDB() {
-  await pool.query(`
+db.serialize(() => {
+  db.run(`
     CREATE TABLE IF NOT EXISTS pesanan (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       nama TEXT NOT NULL,
       email TEXT NOT NULL,
       jumlah INTEGER NOT NULL,
       total REAL NOT NULL,
       tiket_code TEXT UNIQUE,
-      tanggal TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
+      tanggal DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
   `);
 
-  await pool.query(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS stok_tiket (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       tersedia INTEGER DEFAULT 1000
-    );
+    )
   `);
 
-  await pool.query(`
-    INSERT INTO stok_tiket (id, tersedia)
-    VALUES (1, 1000)
-    ON CONFLICT (id) DO NOTHING;
-  `);
-}
-
-initDB();
+  db.run(`INSERT OR IGNORE INTO stok_tiket (id, tersedia) VALUES (1, 1000)`);
+});
 
 function generateTicketCode(id) {
   return `TKT-GRF-2025-${String(id).padStart(4, '0')}`;
 }
 
 // ========================
-// API Pemesanan Tiket
+// API: Pemesanan Tiket (multi-tiket, id unik per tiket)
 // ========================
 app.post('/api/pesan-tiket', async (req, res) => {
   const { nama, email, jumlah } = req.body;
@@ -66,63 +56,134 @@ app.post('/api/pesan-tiket', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Jumlah tiket tidak valid' });
 
   try {
-    const stokRes = await pool.query('SELECT tersedia FROM stok_tiket WHERE id = 1');
-    const tersedia = stokRes.rows[0].tersedia;
+    const stokRow = await new Promise((resolve, reject) => {
+      db.get('SELECT tersedia FROM stok_tiket WHERE id = 1', (err, row) =>
+        err ? reject(err) : resolve(row)
+      );
+    });
 
+    const tersedia = stokRow ? stokRow.tersedia : 0;
     if (tersedia < qty)
       return res.status(400).json({ success: false, error: `Stok tiket tidak cukup. Sisa: ${tersedia}` });
 
-    await pool.query('UPDATE stok_tiket SET tersedia = tersedia - $1 WHERE id = 1', [qty]);
+    // Kurangi stok
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE stok_tiket SET tersedia = tersedia - ? WHERE id = 1', [qty], err =>
+        err ? reject(err) : resolve()
+      );
+    });
 
     const tiketList = [];
 
+    // Simpan setiap tiket secara terpisah
     for (let i = 0; i < qty; i++) {
-      const insertRes = await pool.query(
-        'INSERT INTO pesanan (nama, email, jumlah, total) VALUES ($1, $2, $3, $4) RETURNING id',
-        [nama, email, 1, HARGA_TIKET]
-      );
+      const ticketId = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO pesanan (nama, email, jumlah, total) VALUES (?, ?, ?, ?)',
+          [nama, email, 1, HARGA_TIKET],
+          function (err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+          }
+        );
+      });
 
-      const ticketId = insertRes.rows[0].id;
       const tiketCode = generateTicketCode(ticketId);
 
-      await pool.query('UPDATE pesanan SET tiket_code = $1 WHERE id = $2', [tiketCode, ticketId]);
+      await new Promise((resolve, reject) => {
+        db.run('UPDATE pesanan SET tiket_code = ? WHERE id = ?', [tiketCode, ticketId], err =>
+          err ? reject(err) : resolve()
+        );
+      });
 
       tiketList.push({
         id: ticketId,
         nama,
         email,
         tiket_code: tiketCode,
-        harga: HARGA_TIKET,
+        harga: HARGA_TIKET
       });
     }
+
+    console.log(`✅ ${qty} tiket berhasil dibuat untuk ${nama}`);
 
     res.json({
       success: true,
       message: `Berhasil membeli ${qty} tiket untuk ${nama}`,
       total: qty * HARGA_TIKET,
-      tiketList,
+      tiketList
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Gagal memproses pemesanan:', err);
     res.status(500).json({ success: false, error: 'Terjadi kesalahan server' });
   }
 });
 
 // ========================
-// API Lain
+// API: Ambil Data Pesanan & Stok
 // ========================
-app.get('/api/stok', async (req, res) => {
-  const stokRes = await pool.query('SELECT tersedia FROM stok_tiket WHERE id = 1');
-  res.json({ tersedia: stokRes.rows[0].tersedia });
+app.get('/api/pesanan', (req, res) => {
+  db.all('SELECT * FROM pesanan ORDER BY tanggal DESC', (err, rows) => {
+    if (err)
+      return res.status(500).json({ success: false, error: 'Error mengambil data' });
+    res.json(rows);
+  });
 });
 
-app.get('/api/pesanan', async (req, res) => {
-  const result = await pool.query('SELECT * FROM pesanan ORDER BY tanggal DESC');
-  res.json(result.rows);
+app.get('/api/stok', (req, res) => {
+  db.get('SELECT tersedia FROM stok_tiket WHERE id = 1', (err, row) => {
+    if (err)
+      return res.status(500).json({ success: false, error: 'Error database' });
+    res.json({ tersedia: row ? row.tersedia : 0 });
+  });
 });
 
-app.get('/', (req, res) => {
-  res.json({ message: '✅ Backend Vercel + Neon berjalan!' });
+// ========================
+// API: Detail Tiket
+// ========================
+app.get('/api/tiket/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id))
+    return res.status(400).json({ success: false, error: 'ID tidak valid' });
+
+  db.get('SELECT * FROM pesanan WHERE id = ?', [id], (err, row) => {
+    if (err)
+      return res.status(500).json({ success: false, error: 'Error database' });
+    if (!row)
+      return res.status(404).json({ success: false, error: 'Tiket tidak ditemukan' });
+
+    if (row.tiket_code.startsWith('CANCELLED'))
+      return res.json({ success: false, error: 'Tiket ini telah dibatalkan oleh admin.' });
+
+    res.json({
+      success: true,
+      data: row,
+      eventInfo: {
+        namaEvent: 'GRF UKM Musik Undiksha 2025',
+        tanggal: '20 Desember 2025',
+        lokasi: 'Lap. Basket Kampus Tengah Undiksha',
+        deskripsi: 'Konser musik Hardcore!'
+      }
+    });
+  });
 });
 
-module.exports = app;
+// ========================
+// ✅ Reset Semua Data (ID & Stok)
+// ========================
+app.post('/api/reset', (req, res) => {
+  db.serialize(() => {
+    db.run('DELETE FROM pesanan');
+    db.run("DELETE FROM sqlite_sequence WHERE name='pesanan'");
+    db.run('UPDATE stok_tiket SET tersedia = 1000 WHERE id = 1');
+    res.json({
+      success: true,
+      message: '✅ Semua data berhasil direset. ID tiket kembali ke 1 dan stok = 1000.'
+    });
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server berjalan di port ${PORT}`);
+});
+
